@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest==9.1.1
+playwright==1.62.0
+# scripts/verify-local.sh 의 lint 게이트가 이 pin 을 쓴다. 없으면 그 스크립트가
+# 통과가 아니라 실패로 멈춘다(건너뛴 검사를 통과로 보고하지 않는다).
+ruff==0.14.4

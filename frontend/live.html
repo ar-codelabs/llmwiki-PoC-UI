@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#081018">
+<title>Pipeline Control Console</title>
+<style>
+  :root{
+    color-scheme:dark;
+    --ink:#edf4fb;--sub:#93a9bc;--line:#2b4154;--panel:#101d29;--deep:#081018;
+    --accent:#55a8ff;--ok:#3fd08d;--warn:#e8bd58;--code:#060c12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+    linear-gradient(rgba(85,168,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(85,168,255,.045) 1px,transparent 1px),
+    var(--deep);background-size:30px 30px;color:var(--ink);
+    font:14px/1.65 Bahnschrift,"Aptos Narrow","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+  .app-shell[hidden],.auth-gate[hidden],.hidden{display:none}
+  .auth-gate{min-height:100vh;display:grid;place-items:center;color:var(--sub);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em}
+  header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+    flex-wrap:wrap;padding:12px 20px;background:rgba(6,12,18,.97);
+    border-bottom:1px solid #354d61;box-shadow:0 14px 34px rgba(0,0,0,.24)}
+  header h1{margin:0;font-size:17px;letter-spacing:.02em}
+  header nav{margin-left:auto;display:flex;align-items:center;gap:13px}
+  header a{color:#9ed1ff;text-decoration:none;font-size:12.5px}
+  header a:hover{text-decoration:underline}
+  .auth-cluster{display:flex;align-items:center;gap:8px;padding-left:13px;
+    border-left:1px solid #3a5266;color:#b9cad8;font-size:11.5px}
+  .signal{width:7px;height:7px;border-radius:50%;background:var(--ok);
+    box-shadow:0 0 0 4px rgba(63,208,141,.12)}
+  #authSubject{color:#e6f1fa;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  button{border:1px solid transparent;border-radius:5px;padding:9px 16px;
+    font:650 13px inherit;cursor:pointer}
+  button:disabled{background:#33495b!important;border-color:#4a6174!important;
+    color:#91a4b4!important;cursor:default}
+  .logout{padding:5px 9px;background:transparent;border-color:#526b80;color:#c9d8e5}
+  .primary{background:#0c70c9;border-color:#55a8ff;color:#fff}
+  .primary:hover{background:#1684e8}
+  .approve{background:#126c4b;border-color:#3fd08d;color:#fff}
+  .approve:hover{background:#16845b}
+  .wrap{max-width:1460px;margin:0 auto;padding:22px 22px 72px}
+  .intro{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;
+    align-items:center;margin-bottom:18px;padding:15px 17px;background:#0d2232;
+    border:1px solid #2b5d7e;border-radius:6px}
+  .intro b{color:var(--accent)}
+  .scenario{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    color:#c9e7ff;white-space:nowrap}
+  .steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  .panel{min-width:0;background:rgba(16,29,41,.98);border:1px solid var(--line);
+    border-radius:6px;overflow:hidden;box-shadow:0 18px 48px rgba(0,0,0,.18)}
+  .phead{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--deep);
+    border-bottom:1px solid var(--line);font-weight:700}
+  .step{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:11px}
+  .pbody{padding:15px}
+  .fixed-target{display:grid;grid-template-columns:120px 1fr;gap:5px 13px;margin:0 0 12px}
+  .fixed-target dt{color:var(--sub)}
+  .fixed-target dd{margin:0;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;
+    word-break:break-all}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .compare label,.label{display:block;margin:7px 0 4px;color:var(--sub);
+    font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  pre{margin:0;padding:11px 13px;min-height:92px;overflow:auto;background:var(--code);
+    border:1px solid #203344;border-radius:5px;color:#e7eef5;white-space:pre-wrap;
+    font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre .ad{display:block;color:#7ee7ad;background:rgba(46,160,67,.15)}
+  pre .de{display:block;color:#ffaaa1;background:rgba(248,81,73,.13)}
+  pre .hh{display:block;color:#79c0ff}
+  pre .m{color:#99a9b7}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:13px}
+  .hint{color:var(--sub);font-size:12px}
+  .notice{margin-top:12px;padding:10px 12px;background:#302713;border-left:4px solid var(--warn);
+    border-radius:0 5px 5px 0;font-size:12px}
+  .timeline{list-style:none;margin:0;padding:0}
+  .timeline li{display:flex;gap:11px;padding:8px 0;border-bottom:1px dashed #2a3e50}
+  .timeline li:last-child{border-bottom:0}
+  .dot{flex:none;display:grid;place-items:center;width:23px;height:23px;border-radius:50%;
+    border:1px solid var(--line);background:var(--deep);color:var(--sub);font-size:11px}
+  .timeline li.on .dot{background:var(--ok);border-color:var(--ok);color:#fff}
+  .timeline li.run .dot{background:var(--accent);border-color:var(--accent);color:#fff}
+  .timeline li.wait{opacity:.48}
+  .timeline .t{font-weight:650;font-size:12.5px}
+  .timeline .d{color:var(--sub);font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace}
+  .kv{display:grid;grid-template-columns:125px 1fr;gap:4px 12px;margin:0 0 10px}
+  .kv dt{color:var(--sub)}
+  .kv dd{margin:0;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;
+    word-break:break-all}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:6px 8px;border:1px solid var(--line);text-align:left}
+  th{background:var(--deep)}
+  .pill{display:inline-block;padding:1px 7px;border-radius:3px;font-size:11px;font-weight:700}
+  .p-ok{background:#0e2d24;color:var(--ok);border:1px solid #246c53}
+  .p-hold{background:#302713;color:var(--warn);border:1px solid #6f5b24}
+  .p-llm{background:var(--accent);color:#fff}
+  .op-status{min-width:140px;color:#acc0d1;
+    font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace}
+  .empty{padding:18px 0;color:var(--sub);text-align:center}
+  code{padding:0 4px;background:var(--deep);border:1px solid var(--line);
+    border-radius:3px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
+  :focus-visible{outline:3px solid #ffd166;outline-offset:3px}
+  @media(max-width:980px){.steps,.compare{grid-template-columns:1fr}.intro{grid-template-columns:1fr}}
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;scroll-behavior:auto!important}
+  }
+</style>
+</head>
+<body>
+<div class="auth-gate" id="authGate" role="status" aria-live="polite">
+  Cognito session 확인 중
+</div>
+<div class="app-shell" id="appShell" hidden>
+<header>
+  <h1>Pipeline Control Console</h1>
+  <span class="pill p-hold" id="phase" role="status" aria-live="polite">대기</span>
+  <span class="op-status" id="opStatus" role="status" aria-live="polite"></span>
+  <nav>
+    <a href="/">실행 기록</a>
+    <a href="/wiki.html">apps-knowledge 이력</a>
+    <span class="auth-cluster">
+      <span class="signal" aria-hidden="true"></span>
+      <span id="authStatus" role="status" aria-live="polite">인증됨</span>
+      <span id="authSubject"></span>
+      <button class="logout" id="logoutButton" type="button" aria-label="로그아웃">LOGOUT</button>
+    </span>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="intro">
+    <div>
+      <b>고정 Maintenance 시나리오</b><br>
+      Browser는 repository, path, command 또는 임의 source content를 선택하지 않습니다.
+      현재 blob이 허용된 두 상태 중 하나일 때만 다음 상태를 제출합니다.
+    </div>
+    <div class="scenario">shaka-player / lib/net/backoff.js</div>
+  </div>
+
+  <div class="steps">
+    <section class="panel" data-control-step="1">
+      <div class="phead"><span class="step">1</span>Source 변경 실행</div>
+      <div class="pbody">
+        <dl class="fixed-target">
+          <dt>repository</dt><dd>shaka-player</dd>
+          <dt>path</dt><dd>lib/net/backoff.js</dd>
+          <dt>mutation</dt><dd>baseDelay: 1000, ↔ baseDelay: 1200,</dd>
+        </dl>
+        <div class="compare">
+          <div><label>현재 main blob</label><pre id="currentSource">조회 중</pre></div>
+          <div><label>허용된 다음 blob</label><pre id="nextSource">조회 중</pre></div>
+        </div>
+        <div class="row">
+          <button class="primary" id="btnCommit" type="button" disabled
+            aria-describedby="sourceConfirm">고정 Source 변경 실행</button>
+          <span class="hint" id="finfo" role="status" aria-live="polite">조회 중</span>
+          <span class="hint" id="cinfo" role="status" aria-live="polite"></span>
+        </div>
+        <div class="notice" id="sourceConfirm">
+          <b>소스 PR을 생성하고 main에 merge합니다.</b>
+          이 작업은 실제 Shaka repository history와 Maintenance pipeline을 변경합니다.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-control-step="2">
+      <div class="phead"><span class="step">2</span>Pipeline 진행 확인</div>
+      <div class="pbody">
+        <ul class="timeline" id="tl"></ul>
+        <div id="judge" class="hidden">
+          <span class="label">결정론 판정 근거</span>
+          <pre id="judgePre"></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="resPanel" data-control-step="3">
+      <div class="phead"><span class="step">3</span>Wiki PR 전체 diff 검토</div>
+      <div class="pbody">
+        <dl class="kv" id="prkv">
+          <dt>상태</dt><dd>Pipeline 결과 대기</dd>
+        </dl>
+        <div id="diffs"><div class="empty">Wiki PR이 생성되면 전체 Wiki text diff를 표시합니다.</div></div>
+        <div class="row">
+          <button class="approve" id="btnApprove" type="button" disabled
+            aria-describedby="wikiConfirm">wiki 승인 및 merge</button>
+          <span class="hint" id="ainfo" role="status" aria-live="polite">
+            전체 diff 검토가 완료되기 전에는 승인할 수 없습니다.</span>
+        </div>
+        <div class="notice" id="wikiConfirm">
+          <b>wiki PR을 main에 merge합니다.</b>
+          검토한 source commit과 현재 PR head가 정확히 일치해야 합니다.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="finPanel" data-control-step="4">
+      <div class="phead"><span class="step">4</span>Wiki 승인과 finalization</div>
+      <div class="pbody">
+        <dl class="kv" id="finkv">
+          <dt>상태</dt><dd>Wiki 승인 대기</dd>
+        </dl>
+        <table id="fintab"></table>
+        <div class="empty" id="finnote">승인 뒤 status, verified history와 cursor를 확인합니다.</div>
+      </div>
+    </section>
+  </div>
+</main>
+</div>
+
+<script src="/auth.js"></script>
+<script src="/api.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const num=value=>typeof value==='number'&&Number.isFinite(value)?value.toLocaleString('ko-KR'):'0';
+const FIXED_KEY='shaka-player/lib/net/backoff.js';
+const FIXED_REPOSITORY='shaka-player';
+const FIXED_PATH='lib/net/backoff.js';
+const FIXED_TITLE='demo: toggle Shaka retry base delay';
+const FIXED_DESCRIPTION='Fixed Pipeline Control Maintenance scenario';
+let FILES=[], NEXT_CONTENT=null, RUN=null, POLL=null, SINCE=null, READ_ONLY=false;
+const subjectLabel=value=>{
+  const text=String(value||'unknown');
+  return text.length>18?`${text.slice(0,8)}…${text.slice(-4)}`:text;
+};
+const scrollBehavior=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ?'auto':'smooth';
+const STAGES=[
+  {k:'merged',t:'Source main merge',d:'고정 Shaka mutation'},
+  {k:'lambda',t:'결정론 scope',d:'exact source와 inverse index'},
+  {k:'llm',t:'Claude Converse',d:'허용된 source와 skill만 사용'},
+  {k:'validate',t:'결정론 검증',d:'content contract와 source evidence'},
+  {k:'wikipr',t:'Wiki PR 생성',d:'apps-knowledge review branch'},
+  {k:'approve',t:'사람 승인',d:'전체 diff와 exact source commit'},
+  {k:'final',t:'Finalization',d:'status, verified history, cursor'},
+];
+let STATE={};
+
+function fixedMutation(content){
+  const text=String(content);
+  // ⚠️ object literal 의 key 만 센다. `\bbaseDelay\s*:` 로 세면 삼항연산자
+  //    `defaults.baseDelay : parameters.baseDelay` 가 대입으로 잡혀 개수가 2가 되고,
+  //    버튼이 'unsupported fixed source state' 로 영구히 막힌다(실측 2026-09-17).
+  //    선행 문자가 `.` 이나 단어 문자면 key 가 아니므로 제외한다.
+  const assignments=text.match(/(?<![.\w$])baseDelay\s*:/g)||[];
+  const low='baseDelay: 1000,', high='baseDelay: 1200,';
+  const lowCount=text.split(low).length-1;
+  const highCount=text.split(high).length-1;
+  if(assignments.length!==1||lowCount+highCount!==1){
+    throw new Error('unsupported fixed source state');
+  }
+  return lowCount===1?text.replace(low,high):text.replace(high,low);
+}
+
+function drawTL(){
+  $('tl').innerHTML=STAGES.map((stage,index)=>{
+    const state=STATE[stage.k]||'wait';
+    const cls=state==='on'?'on':state==='run'?'run':'wait';
+    const mark=state==='on'?'✓':state==='run'?'•':String(index+1);
+    const detail=STATE[stage.k+'_d']
+      ?`<div class="d">${esc(STATE[stage.k+'_d'])}</div>`:'';
+    return `<li class="${cls}"><div class="dot">${mark}</div><div>
+      <div class="t">${stage.t}</div><div class="d">${stage.d}</div>${detail}</div></li>`;
+  }).join('');
+}
+function setPhase(text,cls){
+  const phase=$('phase');
+  phase.textContent=text;
+  phase.className='pill '+(cls||'p-hold');
+}
+
+async function loadFiles(){
+  const button=$('btnCommit'); button.disabled=true; FILES=[]; NEXT_CONTENT=null;
+  try{
+    const response=await window.DemoApi.get('/api/editable');
+    const files=response.files;
+    if(!Array.isArray(files)||files.length!==1){
+      throw new Error('editable response incomplete');
+    }
+    const file=files[0];
+    if(!file||file.key!==FIXED_KEY||file.repo!==FIXED_REPOSITORY||
+      file.path!==FIXED_PATH||typeof file.content!=='string'||
+      typeof file.head!=='string'||!file.head){
+      throw new Error('editable response incomplete');
+    }
+    FILES=[file];
+    pick(0);
+    button.disabled=READ_ONLY||NEXT_CONTENT===null;
+    button.textContent=READ_ONLY
+      ?'실행 권한 없음'
+      :NEXT_CONTENT===null
+        ?'지원되지 않는 Source 상태'
+        :'고정 Source 변경 실행';
+    return true;
+  }catch(error){
+    FILES=[]; NEXT_CONTENT=null;
+    $('currentSource').textContent='Source 조회 실패';
+    $('nextSource').textContent='허용된 mutation을 계산할 수 없습니다.';
+    $('finfo').textContent='새로고침 후 다시 시도하세요.';
+    button.disabled=true;
+    button.textContent='Source 조회 실패';
+    if(error&&error.status===401) throw error;
+    return false;
+  }
+}
+function pick(index){
+  const file=FILES[index];
+  if(!file) return;
+  try{
+    NEXT_CONTENT=fixedMutation(file.content);
+    $('currentSource').textContent=file.content;
+    $('nextSource').textContent=NEXT_CONTENT;
+    $('finfo').textContent=`${file.repo} · main ${String(file.head).slice(0,12)}`;
+  }catch(error){
+    NEXT_CONTENT=null;
+    $('currentSource').textContent=file.content;
+    $('nextSource').textContent='지원되지 않는 source 상태';
+    $('finfo').textContent='고정 mutation을 실행할 수 없습니다.';
+    $('btnCommit').disabled=true;
+  }
+}
+
+$('btnCommit').onclick=async()=>{
+  const file=FILES[0];
+  if(!file||!NEXT_CONTENT||READ_ONLY) return;
+  if(!window.confirm('소스 PR을 생성하고 main에 merge합니다\n고정 Shaka Maintenance cycle을 시작합니다.\n계속할까요?')) return;
+  const button=$('btnCommit');
+  button.disabled=true; button.textContent='Source merge 중';
+  STATE={}; drawTL();
+  $('judge').classList.add('hidden');
+  $('prkv').innerHTML='<dt>상태</dt><dd>Pipeline 결과 대기</dd>';
+  $('diffs').innerHTML='<div class="empty">Wiki PR 생성 대기</div>';
+  $('finkv').innerHTML='<dt>상태</dt><dd>Wiki 승인 대기</dd>';
+  $('fintab').innerHTML='';
+  $('finnote').textContent='승인 뒤 finalization을 확인합니다.';
+  $('btnApprove').disabled=true;
+  SINCE=Date.now()-60000;
+  $('opStatus').textContent='source action 요청 중';
+  try{
+    const result=await window.DemoApi.post('/api/actions/commit',{
+      key:file.key,
+      content:NEXT_CONTENT,
+      title:FIXED_TITLE,
+      description:FIXED_DESCRIPTION,
+      expected_head:file.head,
+    });
+    RUN={...result,repo:file.repo,wiki_pr:null,expected_source_commit:null,doc_paths:[]};
+    $('cinfo').textContent=`Source PR #${result.pull_request_id} merged`;
+    STATE.merged='on'; STATE.merged_d=result.operation_id;
+    STATE.lambda='run'; drawTL(); setPhase('실행 중','p-llm');
+    $('opStatus').textContent='pipeline event 추적 중';
+    startPoll(result.pull_request_id);
+  }catch(error){
+    $('cinfo').textContent='source action이 거부되었거나 실패했습니다.';
+    $('opStatus').textContent='source action 실패';
+    button.disabled=READ_ONLY;
+    button.textContent='고정 Source 변경 실행';
+  }
+};
+
+function startPoll(pullRequestId){
+  if(POLL) clearInterval(POLL);
+  POLL=setInterval(()=>tick(pullRequestId),4000);
+  tick(pullRequestId);
+}
+
+async function tick(pullRequestId){
+  let response;
+  try{
+    response=await window.DemoApi.get(
+      `/api/progress?pr=${encodeURIComponent(pullRequestId)}&since=${SINCE}`,
+    );
+  }catch(error){
+    $('opStatus').textContent='progress 조회 재시도 중';
+    return;
+  }
+  const events=response.runtime_events||[];
+  const has=name=>events.some(event=>event.event===name);
+  if(has('stage_plan')||has('skills_selected')) STATE.lambda='on';
+  if(has('converse_started')){STATE.lambda='on';STATE.llm='run';}
+  if(has('converse_finished')) STATE.llm='on';
+  if(has('validation_passed')) STATE.validate='on';
+  if(has('publish_state_transition')) STATE.wikipr='run';
+  drawTL();
+  if(!response.done) return;
+
+  clearInterval(POLL); POLL=null;
+  const payload=response.payload||{}, runtime=payload.runtime||{};
+  STATE.lambda='on';
+  if(payload.agent_invoked){STATE.llm='on';STATE.validate='on';}
+  else{STATE.llm='wait';STATE.llm_d='대상 문서 0건';}
+  $('judge').classList.remove('hidden');
+  let evidence=(payload.trace||[]).map((item,index)=>
+    `<span class="m">${index+1}.</span> ${esc(item)}`).join('\n');
+  evidence+=`\n\n<span class="m">diff</span> ${esc(payload.diff_sha256||'')}`;
+  evidence+=`\n<span class="m">scope</span> ${(payload.scope||[]).map(esc).join(', ')||'없음'}`;
+  if(runtime.usage){
+    evidence+=`\n<span class="m">tokens</span> ${num(runtime.usage.input_tokens)} / ${num(runtime.usage.output_tokens)}`;
+  }
+  $('judgePre').innerHTML=evidence;
+  $('btnCommit').disabled=READ_ONLY;
+  $('btnCommit').textContent='고정 Source 변경 실행';
+
+  if(response.wiki_pull_request_id){
+    STATE.wikipr='on';STATE.wikipr_d=`Wiki PR #${response.wiki_pull_request_id}`;
+    STATE.approve='run';drawTL();setPhase('승인 대기','p-hold');
+    await showWikiPR(response.wiki_pull_request_id,payload);
+  }else{
+    STATE.wikipr='wait';STATE.wikipr_d='갱신 문서 없음';
+    drawTL();setPhase('완료','p-ok');
+    $('opStatus').textContent='pipeline 완료';
+  }
+}
+
+async function showWikiPR(wpr,payload){
+  const button=$('btnApprove'); button.disabled=true;
+  RUN.wiki_pr=null; RUN.expected_source_commit=null;
+  try{
+    const response=await window.DemoApi.get(
+      `/api/wiki-pr?pr=${encodeURIComponent(wpr)}`,
+    );
+    const truncated=!!response&&(response.review_complete===false||
+      (Array.isArray(response.files)&&response.files.some(file=>
+        !file||file.truncated!==false)));
+    if(truncated) throw new Error('wiki review truncated');
+    if(!response||response.review_complete!==true||
+      typeof response.source_commit!=='string'||!response.source_commit||
+      !Array.isArray(response.all_files)||!response.all_files.length||
+      response.all_files.some(path=>typeof path!=='string'||!path)||
+      !Array.isArray(response.files)||
+      response.files.some(file=>!file||file.truncated!==false||
+        !Array.isArray(file.unified))){
+      throw new Error('wiki review response incomplete');
+    }
+    RUN.wiki_pr=wpr; RUN.doc_paths=payload.scope||[];
+    RUN.expected_source_commit=response.source_commit;
+    $('prkv').innerHTML=`
+      <dt>Wiki PR</dt><dd>#${esc(response.pull_request_id)} · ${esc(response.status)}</dd>
+      <dt>branch</dt><dd>${esc(response.branch)}</dd>
+      <dt>files</dt><dd>${response.all_files.map(esc).join('<br>')}</dd>`;
+    $('diffs').innerHTML=response.files.map(file=>{
+      const lines=(file.unified||[]).filter(line=>
+        !line.startsWith('---')&&!line.startsWith('+++'));
+      const body=lines.map(line=>{
+        const cls=line.startsWith('+')?'ad':line.startsWith('-')?'de':
+          line.startsWith('@@')?'hh':'';
+        return `<span class="${cls}">${esc(line)}</span>`;
+      }).join('\n');
+      return `<span class="label">${esc(file.path)}: merge 전과 후</span><pre>${body}</pre>`;
+    }).join('');
+    button.disabled=READ_ONLY;
+    $('ainfo').textContent='전체 diff 검토 완료. 승인할 수 있습니다.';
+    $('opStatus').textContent='wiki 검토 대기';
+    $('resPanel').scrollIntoView({behavior:scrollBehavior,block:'start'});
+  }catch(error){
+    RUN.wiki_pr=null; RUN.expected_source_commit=null;
+    $('ainfo').textContent=error.message==='wiki review truncated'
+      ?'일부 Wiki text diff가 400줄을 초과해 전체 내용을 검토할 수 없습니다.'
+      :'위키 검토 정보를 불러오지 못했습니다.';
+    button.disabled=true;
+  }
+}
+
+$('btnApprove').onclick=async()=>{
+  if(!RUN||!RUN.wiki_pr||!RUN.expected_source_commit||READ_ONLY) return;
+  if(!window.confirm('wiki PR을 main에 merge합니다\n검토한 source commit과 현재 PR head가 일치해야 합니다.\n계속할까요?')) return;
+  const button=$('btnApprove');
+  button.disabled=true;button.textContent='Wiki merge 중';
+  $('opStatus').textContent='wiki action 요청 중';
+  try{
+    const result=await window.DemoApi.post('/api/actions/approve',{
+      wiki_pr:RUN.wiki_pr,
+      expected_source_commit:RUN.expected_source_commit,
+    });
+    STATE.approve='on';STATE.approve_d=result.operation_id;
+    STATE.final='run';drawTL();setPhase('확정 중','p-llm');
+    $('ainfo').textContent='Wiki merge 완료. finalization을 확인합니다.';
+    $('opStatus').textContent='finalization 대기';
+    setTimeout(()=>waitFinal(0),6000);
+  }catch(error){
+    $('ainfo').textContent='wiki action이 거부되었거나 실패했습니다.';
+    $('opStatus').textContent='wiki action 실패';
+    button.disabled=READ_ONLY;button.textContent='wiki 승인 및 merge';
+  }
+};
+
+async function waitFinal(attempt){
+  const paths=(RUN.doc_paths||[]).join(',');
+  let response;
+  try{
+    response=await window.DemoApi.get(
+      `/api/finalization?repo=${encodeURIComponent(RUN.repo)}`+
+      `&paths=${encodeURIComponent(paths)}`,
+    );
+  }catch(error){
+    if(attempt<20){setTimeout(()=>waitFinal(attempt+1),6000);return;}
+    $('opStatus').textContent='finalization 조회 실패';
+    return;
+  }
+  const allCurrent=(response.docs||[]).length&&
+    (response.docs||[]).every(document=>document.status==='current');
+  if(!allCurrent&&attempt<20){setTimeout(()=>waitFinal(attempt+1),6000);return;}
+  STATE.final=allCurrent?'on':'run';drawTL();
+  setPhase(allCurrent?'확정 완료':'확정 지연',allCurrent?'p-ok':'p-hold');
+  $('finkv').innerHTML=`
+    <dt>Wiki HEAD</dt><dd>${String(response.wiki_head||'').slice(0,12)} · ${esc(response.wiki_head_author)}</dd>
+    <dt>commit</dt><dd>${esc(response.wiki_head_message)}</dd>
+    <dt>cursor</dt><dd>${esc(response.cursor||'-')}</dd>`;
+  $('fintab').innerHTML=`<thead><tr><th>문서</th><th>status</th><th>stale_after</th>
+    <th>verified</th><th>last PR</th></tr></thead><tbody>`+
+    (response.docs||[]).map(document=>`<tr><td>${esc(document.path)}</td>
+      <td><span class="pill ${document.status==='current'?'p-ok':'p-hold'}">${esc(document.status)}</span></td>
+      <td>${esc(document.stale_after)}</td><td>${document.verified_count}</td>
+      <td>#${esc(document.last_verified_pr||'-')}</td></tr>`).join('')+'</tbody>';
+  $('finnote').textContent=
+    'status, verified history와 cursor가 Wiki merge 뒤 확정됐습니다.';
+  $('finPanel').scrollIntoView({behavior:scrollBehavior,block:'start'});
+  $('opStatus').textContent=allCurrent?'freshness 확정 완료':'freshness 확정 지연';
+}
+
+function applySession(session){
+  READ_ONLY=!session||session.can_execute!==true;
+  if(!READ_ONLY) return;
+  $('btnCommit').disabled=true;
+  $('btnCommit').textContent='실행 권한 없음';
+  $('btnApprove').disabled=true;
+  $('btnApprove').textContent='승인 권한 없음';
+  setPhase('읽기 전용','p-hold');
+}
+
+document.getElementById('logoutButton').onclick=async()=>{
+  document.getElementById('logoutButton').disabled=true;
+  await window.DemoAuth.logout();
+};
+
+async function bootstrapPage(){
+  try{
+    const authSession=await window.DemoAuth.bootstrap();
+    if (!authSession) return;
+    const session=await window.DemoApi.get('/api/session');
+    const verifiedSubject=session&&session.subject;
+    if(!window.DemoAuth.validSubject(verifiedSubject)){
+      const error=new Error('Invalid authenticated session');
+      error.status=401;
+      throw error;
+    }
+    drawTL();
+    applySession(session);
+    if(await loadFiles()===false){
+      const error=new Error('Initial data unavailable');
+      error.status=500;
+      throw error;
+    }
+    $('authSubject').textContent=subjectLabel(verifiedSubject);
+    $('authStatus').textContent='AUTHENTICATED';
+    $('authGate').hidden=true;
+    $('appShell').hidden=false;
+  }catch(error){
+    $('appShell').hidden=true;
+    $('authGate').hidden=false;
+    $('authGate').textContent=error&&error.status===401
+      ?'인증 세션이 만료되었습니다. 다시 로그인합니다.'
+      :'인증 또는 초기 데이터 조회에 실패했습니다. 페이지를 다시 열어 주세요.';
+    if(error&&error.status===401){
+      await window.DemoAuth.logout();
+    }
+  }
+}
+
+bootstrapPage();
+</script>
+</body>
+</html>

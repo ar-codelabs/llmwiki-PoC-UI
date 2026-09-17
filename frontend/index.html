@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#071019">
+<title>조직 LLM Wiki Pipeline Control</title>
+<style>
+  :root{
+    color-scheme:dark;
+    --ink:#e7eef6; --sub:#92a7ba; --line:#2b3c4f; --bg:#101a25; --soft:#08121c;
+    --accent:#4da3ff; --ok:#40c98b; --warn:#e7bd58; --no:#ff8e8e; --code:#071019;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      linear-gradient(rgba(77,163,255,.035) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(77,163,255,.035) 1px,transparent 1px),
+      var(--soft);background-size:32px 32px;color:var(--ink);
+    font-family:Bahnschrift,"Aptos Narrow","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    font-size:14px;line-height:1.65}
+  .app-shell[hidden],.auth-gate[hidden]{display:none}
+  .auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;color:var(--sub);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em}
+  .auth-gate::before{content:"AUTH /";color:var(--accent);margin-right:8px}
+  header{background:rgba(7,16,25,.97);color:#fff;padding:12px 20px;display:flex;
+    align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:10;
+    border-bottom:1px solid #34495e;box-shadow:0 12px 34px rgba(0,0,0,.2)}
+  header h1{font-size:17px;margin:0;font-weight:650}
+  header .meta{font-size:12px;color:#9fb3c8;margin-left:auto;display:flex;gap:13px;
+    align-items:center;flex-wrap:wrap}
+  header button{background:var(--accent);color:#fff;border:0;border-radius:5px;
+    padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  header button:hover{background:#2588e7}
+  header button:disabled{background:#42566b;cursor:default}
+  .auth-cluster{display:flex;align-items:center;gap:8px;border-left:1px solid #3b4d61;
+    padding-left:13px}
+  .signal{width:7px;height:7px;border-radius:50%;background:var(--ok);
+    box-shadow:0 0 0 4px rgba(64,201,139,.12)}
+  #authSubject{color:#dce9f5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  header .logout{background:transparent;border:1px solid #52677d;color:#c8d7e5;
+    padding:5px 9px;font-size:11.5px}
+  header .logout:hover{background:#172638;border-color:#7590aa}
+  nav.pages{display:flex;gap:8px;flex-wrap:wrap}
+  .pbtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;
+    background:#172638;border:1px solid #40566c;color:#dce7f2;border-radius:4px;
+    padding:6px 13px;font-size:12.5px;font-weight:600}
+  .pbtn:hover{background:#20364d;border-color:#6b87a2;color:#fff}
+  .pbtn.live{background:#126c4b;border-color:#2c9b70;color:#fff}
+  .pbtn.live:hover{background:#16845b}
+  .wrap{display:grid;grid-template-columns:minmax(300px,360px) 1fr;gap:0;
+    height:calc(100vh - 52px)}
+  .list{border-right:1px solid var(--line);overflow-y:auto;background:var(--bg)}
+  .detail{overflow-y:auto;padding:22px 26px 60px}
+  .filters{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;
+    gap:8px;flex-wrap:wrap;background:var(--bg);position:sticky;top:0}
+  .filters button{background:var(--bg);border:1px solid var(--line);border-radius:14px;
+    padding:4px 11px;font-size:12px;cursor:pointer;color:var(--sub);font-family:inherit}
+  .filters button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .run{padding:11px 16px;border-bottom:1px solid #1d2b39;cursor:pointer}
+  .run:hover{background:#142536}
+  .run.sel{background:#112b42;box-shadow:inset 3px 0 0 var(--accent)}
+  .run .r1{display:flex;align-items:baseline;gap:8px}
+  .run .repo{font-weight:650}
+  .run .src{font-size:11.5px;color:var(--sub);font-family:ui-monospace,Menlo,monospace}
+  .run .r2{font-size:12px;color:var(--sub);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+  .pill{display:inline-block;font-size:11px;font-weight:650;border-radius:3px;padding:1px 7px}
+  .p-llm{background:#0972d3;color:#fff}
+  .p-skip{background:#182431;color:var(--sub);border:1px solid var(--line)}
+  .p-ok{background:#0e2d24;color:var(--ok);border:1px solid #246c53}
+  .p-hold{background:#302713;color:var(--warn);border:1px solid #6f5b24}
+  .p-no{background:#351b20;color:var(--no);border:1px solid #74353f}
+  h2{font-size:19px;margin:0 0 4px;padding-bottom:8px;border-bottom:2px solid var(--ink)}
+  h3{font-size:13px;margin:26px 0 8px;color:var(--sub);letter-spacing:.04em;
+    text-transform:uppercase;font-weight:700}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:7px;
+    padding:14px 16px;margin:10px 0}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:4px 14px;font-size:13px}
+  .kv dt{color:var(--sub)}
+  .kv dd{margin:0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;word-break:break-all}
+  pre{background:var(--code);color:#e6edf3;border-radius:6px;padding:12px 14px;
+    overflow-x:auto;font-size:12px;line-height:1.6;margin:8px 0;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap}
+  pre .k{color:#7ee787} pre .m{color:#9aa7b4} pre .b{color:#79c0ff;font-weight:600}
+  .stage{display:flex;gap:12px;align-items:flex-start;padding:11px 0;
+    border-bottom:1px dashed #2a3948}
+  .stage:last-child{border-bottom:0}
+  .stage .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--soft);
+    border:1.5px solid var(--line);display:grid;place-items:center;font-size:12px;
+    font-weight:700;color:var(--sub)}
+  .stage.act .n{background:var(--accent);border-color:var(--accent);color:#fff}
+  .stage.llm .n{background:#0972d3;border-color:#075fae;color:#fff}
+  .stage.off{opacity:.5}
+  .stage .t{font-weight:650;font-size:13.5px}
+  .stage .d{font-size:12.5px;color:var(--sub)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--soft);font-weight:650;font-size:12px}
+  .num{text-align:right;font-family:ui-monospace,Menlo,monospace}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+  .kpi{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:12px 14px}
+  .kpi .v{font-size:22px;font-weight:700;font-family:ui-monospace,Menlo,monospace}
+  .kpi .l{font-size:11.5px;color:var(--sub);margin-top:2px}
+  .dhead{display:flex;align-items:center;gap:12px;padding:9px 13px;background:var(--soft);
+    border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .dpath{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:650}
+  .dstat{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  .dstat .ap{color:var(--ok)} .dstat .dp{color:var(--no)}
+  .dtabs{margin-left:auto;display:flex;gap:5px}
+  .dtabs button{background:var(--bg);border:1px solid var(--line);border-radius:4px;
+    padding:3px 9px;font-size:11.5px;cursor:pointer;color:var(--sub);font-family:inherit}
+  .dtabs button.on{background:var(--code);border-color:var(--code);color:#fff;font-weight:600}
+  .dpane pre{margin:0;border-radius:0;max-height:420px;overflow:auto}
+  pre.diff .ad{color:#7ee787;background:rgba(46,160,67,.16);display:block}
+  pre.diff .de{color:#ffa198;background:rgba(248,81,73,.14);display:block}
+  pre.diff .hh{color:#79c0ff;display:block;margin-top:4px}
+  .guide{background:#102538;border:1px solid #2a5d82;border-radius:6px;
+    padding:13px 16px;margin:14px 0;font-size:13px}
+  .guide b{color:var(--accent)}
+  .guide ol{margin:8px 0 0;padding-left:20px}
+  .guide li{margin:3px 0}
+  .empty{color:var(--sub);padding:40px 0;text-align:center}
+  code{background:var(--soft);border:1px solid var(--line);border-radius:3px;padding:0 4px;
+    font-size:12px;font-family:ui-monospace,Menlo,monospace}
+  .note{border-left:3px solid var(--accent);background:#102538;padding:11px 14px;
+    border-radius:0 4px 4px 0}
+  .op-status{min-width:130px;color:#a9bdd0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  :focus-visible{outline:3px solid #ffd166;outline-offset:3px}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr;height:auto}
+    .list{border-right:0;border-bottom:1px solid var(--line);max-height:40vh}}
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;
+      animation-iteration-count:1!important;scroll-behavior:auto!important}
+  }
+</style>
+</head>
+<body>
+<div class="auth-gate" id="authGate" role="status" aria-live="polite">
+  Cognito session 확인 중
+</div>
+<div class="app-shell" id="appShell" hidden>
+<header>
+  <h1>조직 LLM Wiki Pipeline Control</h1>
+  <button id="rf" type="button" aria-label="스냅샷 새로고침">새로고침</button>
+  <span class="op-status" id="opStatus" role="status" aria-live="polite"></span>
+  <nav class="pages">
+    <a class="pbtn live" href="/live.html">Pipeline Control Console</a>
+    <a class="pbtn" href="/wiki.html">apps-knowledge 커밋 이력</a>
+  </nav>
+  <div class="meta">
+    <span id="snapAt">—</span><span id="snapRegion">—</span>
+    <span class="auth-cluster">
+      <span class="signal" aria-hidden="true"></span>
+      <span id="authStatus" role="status" aria-live="polite">인증됨</span>
+      <span id="authSubject"></span>
+      <button class="logout" id="logoutButton" type="button" aria-label="로그아웃">LOGOUT</button>
+    </span>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside class="list">
+    <div class="filters">
+      <button data-f="all" class="on">전체</button>
+      <button data-f="llm">Claude 호출</button>
+      <button data-f="skip">호출 0</button>
+      <button data-f="cross">저장소 경계</button>
+    </div>
+    <div id="runs"></div>
+  </aside>
+  <main class="detail" id="detail"><div class="empty">왼쪽에서 실행을 고르세요</div></main>
+</div>
+</div>
+
+<script src="/auth.js"></script>
+<script src="/api.js"></script>
+<script>
+let SNAP=null, FILTER='all', SEL=0;
+
+const esc = s => String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const short = s => s ? String(s).slice(0,12) : '—';
+const num = n => (n??0).toLocaleString('ko-KR');
+const subjectLabel=value=>{
+  const text=String(value||'unknown');
+  return text.length>18?`${text.slice(0,8)}…${text.slice(-4)}`:text;
+};
+
+function isCross(r){ return (r.trace||[]).some(t=>t.includes('3단')); }
+
+function matches(r){
+  if(FILTER==='llm')   return !!r.agent_invoked;
+  if(FILTER==='skip')  return !r.agent_invoked;
+  if(FILTER==='cross') return isCross(r);
+  return true;
+}
+
+function runList(){
+  const box=document.getElementById('runs');
+  const rs=(SNAP.runs||[]).filter(matches);
+  if(!rs.length){ box.innerHTML='<div class="empty">해당 조건의 실행이 없습니다</div>'; return; }
+  box.innerHTML = rs.map((r)=>{
+    const i=SNAP.runs.indexOf(r);
+    const scope=(r.scope||[]).length;
+    const u=r.runtime&&r.runtime.usage;
+    const badge = r.agent_invoked
+      ? '<span class="pill p-llm">Claude</span>'
+      : '<span class="pill p-skip">호출 0</span>';
+    const cross = isCross(r) ? '<span class="pill p-ok">경계 넘음</span>' : '';
+    return `<div class="run ${i===SEL?'sel':''}" data-i="${i}" role="button"
+      tabindex="0" aria-pressed="${i===SEL?'true':'false'}">
+      <div class="r1"><span class="repo">${esc(r.repo||'—')}</span>
+        <span class="src">${esc(r.source||'')}</span></div>
+      <div class="r2">${badge}${cross}
+        <span>문서 ${scope}건</span>
+        ${u?`<span>${num(u.input_tokens)}/${num(u.output_tokens)} tok</span>`:''}
+        <span>${esc((r._at||'').replace('T',' ').replace('+00:00',' UTC'))}</span></div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.run').forEach(el=>{
+    const choose=()=>{ SEL=+el.dataset.i; render(); };
+    el.onclick=choose;
+    el.onkeydown=event=>{
+      if(event.key==='Enter'||event.key===' '){ event.preventDefault(); choose(); }
+    };
+  });
+}
+
+let DIFFSEQ=0;
+function diffBlock(f,kind){
+  const id='d'+(DIFFSEQ++);
+  const uni=(f.unified||[]).filter(l=>!l.startsWith('---')&&!l.startsWith('+++'));
+  const add=uni.filter(l=>l.startsWith('+')).length;
+  const del=uni.filter(l=>l.startsWith('-')).length;
+  const body=uni.map(l=>{
+    const c = l.startsWith('+') ? 'ad' : l.startsWith('-') ? 'de'
+            : l.startsWith('@@') ? 'hh' : '';
+    return `<span class="${c}">${esc(l)}</span>`;
+  }).join('\n');
+  return `<div class="card" style="padding:0;overflow:hidden">
+    <div class="dhead">
+      <span class="dpath">${esc(f.path)}</span>
+      <span class="dstat"><b class="ap">+${add}</b> <b class="dp">−${del}</b></span>
+      <span class="dtabs">
+        <button class="on" data-t="${id}-u">변경분</button>
+        <button data-t="${id}-b">머지 전</button>
+        <button data-t="${id}-a">머지 후</button>
+      </span>
+    </div>
+    <div id="${id}-u" class="dpane"><pre class="diff">${body||'(변경 없음)'}</pre></div>
+    <div id="${id}-b" class="dpane" hidden><pre>${esc(f.before)||'(빈 파일)'}${
+      f.before_truncated?'\n<span class="m">… 이하 생략</span>':''}</pre></div>
+    <div id="${id}-a" class="dpane" hidden><pre>${esc(f.after)||'(빈 파일)'}${
+      f.after_truncated?'\n<span class="m">… 이하 생략</span>':''}</pre></div>
+  </div>`;
+}
+
+function stageRow(n,title,desc,cls){
+  return `<div class="stage ${cls||''}"><div class="n">${n}</div>
+    <div><div class="t">${title}</div><div class="d">${desc}</div></div></div>`;
+}
+
+function detail(){
+  const box=document.getElementById('detail');
+  const r=(SNAP.runs||[])[SEL];
+  if(!r){ box.innerHTML='<div class="empty">실행이 없습니다</div>'; return; }
+  const rt=r.runtime||{}, u=rt.usage, w=rt.wiki, sc=(r.scope||[]);
+  const tools=rt.tool_calls||[], skills=rt.skills_loaded||[];
+  const usedSkills=[...new Set(tools.filter(t=>t.tool==='read_skill').map(t=>t.arg))];
+
+  const cross=isCross(r);
+  let story;
+  if(!r.agent_invoked){
+    story=`이 실행은 <b>Claude를 부르지 않고 끝났습니다.</b> 결정론 판정이
+      대상 문서를 0건으로 확정했기 때문입니다. 모델 비용도 위키 PR도 발생하지 않습니다.`;
+  }else if(cross){
+    story=`이 실행은 <b>바뀐 저장소 밖의 문서까지 갱신 대상으로 골랐습니다.</b>
+      소비자 저장소가 계약 파일에 선언한 필드가 사라졌기 때문입니다.
+      아래 판정 근거의 3단이 그 결정과 이유입니다.`;
+  }else{
+    story=`이 실행은 <b>바뀐 저장소 안의 문서를</b> 갱신했습니다.
+      역색인이 대상을 찾고, 의미 있는 변경으로 판정한 뒤 Claude가 문서를 고쳤습니다.`;
+  }
+
+  let h=`<h2>${esc(r.repo||'—')} · ${esc(r.source||'')}</h2>
+  <div class="guide">${story}
+    <ol>
+      <li><b>파이프라인 단계</b> — 어디까지 갔는지. 파란 원이 Claude, 흐린 것은 건너뜀</li>
+      <li><b>판정 근거</b> — 왜 그 문서를 골랐는지. 코드가 남긴 문장이고 모델 출력이 아님</li>
+      <li><b>소스 → 위키 전후 대조</b> — 코드가 바뀌니 문서가 어떻게 바뀌었는지</li>
+      <li><b>스킬 표</b> — 중앙에서 몇 개 로드하고 실제로 몇 개 읽었는지</li>
+    </ol>
+  </div>
+  <div class="grid" style="margin:14px 0">
+    <div class="kpi"><div class="v">${sc.length}</div><div class="l">대상 문서</div></div>
+    <div class="kpi"><div class="v" style="color:${r.agent_invoked?'#0972d3':'#037f51'}">
+      ${r.agent_invoked?'1':'0'}</div><div class="l">Claude 호출</div></div>
+    <div class="kpi"><div class="v">${u?num(u.input_tokens+u.output_tokens):'0'}</div>
+      <div class="l">토큰 합계</div></div>
+    <div class="kpi"><div class="v">${tools.length}</div><div class="l">툴 호출</div></div>
+  </div>`;
+
+  // 단계
+  h+=`<h3>파이프라인 단계</h3><div class="card">`;
+  h+=stageRow(1,'트리거',`${esc(r.source||'')} · <code>${short(r.base_sha)}</code> → <code>${short(r.head_sha)}</code>`,'act');
+  h+=stageRow(2,'결정론 판정',(r.trace||[]).map(esc).join('<br>')||'—','act');
+  if(r.agent_invoked){
+    h+=stageRow(3,'Claude Converse',
+      `turn ${u?u.turns:'?'} · 입력 ${u?num(u.input_tokens):'?'} / 출력 ${u?num(u.output_tokens):'?'} 토큰`,'llm');
+  }else{
+    h+=stageRow(3,'Claude Converse',
+      `<b>건너뜀</b> — ${esc(rt.reason||'대상 문서 0건')}`,'off');
+  }
+  // ⚠️ 위키 PR 이 없는 이유가 둘이다. **스코프가 비어 만들 것이 없었던 것**과
+  //    **Runtime 이 실패해 만들지 못한 것**은 다른 사건이다. 둘을 같은 문구로 쓰면
+  //    실패를 정상으로 읽게 된다(실측 2026-09-16: Runtime 500 인데 "갱신할 문서가 없다"로 표시됐다).
+  h+= w
+    ? stageRow(4,'위키 PR 생성',
+        `PR #${esc(w.pull_request_id)} · 브랜치 <code>${esc(w.branch)}</code><br>파일 ${(w.files||[]).length}개`,'act')
+    : rt.error
+      ? stageRow(4,'위키 PR 생성',
+          `<b>실패</b> — ${esc(rt.error_type||'RuntimeError')}<br>${esc(String(rt.error).slice(0,300))}`,'off')
+      : stageRow(4,'위키 PR 생성','만들지 않음 — 갱신할 문서가 없다','off');
+  h+=stageRow(5,'커서',
+    r.cursor_commit?`전진 <code>${short(r.cursor_commit)}</code>`
+                   :`<b>보류</b> — ${esc(r.cursor_held||'위키 PR merge 확정 전')}`,
+    r.cursor_commit?'act':'');
+  h+=`</div>`;
+
+  // 판정 근거
+  h+=`<h3>판정 근거 (결정론)</h3><pre>`;
+  (r.trace||[]).forEach((t,i)=>{ h+=`<span class="m">${i+1}.</span> ${esc(t)}\n`; });
+  h+=`\n<span class="m">멱등 키</span> ${esc(r.diff_sha256||'—')}\n`;
+  h+=`<span class="m">대상 문서</span> ${sc.length?sc.map(esc).join(', '):'없음'}\n</pre>`;
+
+  // PR 설명
+  if(r.pull_request_description){
+    h+=`<h3>소스 PR 설명 (프롬프트 입력)</h3><pre>${esc(r.pull_request_description)}</pre>`;
+  }
+
+  // 스킬
+  if(skills.length){
+    h+=`<h3>스킬 노출과 실제 사용</h3><table><thead><tr>
+      <th>스킬</th><th>S3 로드</th><th>이 실행에서 읽음</th></tr></thead><tbody>`;
+    skills.forEach(s=>{
+      const used=usedSkills.includes(s);
+      h+=`<tr><td><code>${esc(s)}</code></td><td>로드됨</td>
+        <td>${used?'<span class="pill p-llm">읽음</span>':'<span class="pill p-skip">안 읽음</span>'}</td></tr>`;
+    });
+    h+=`</tbody></table><div class="d" style="font-size:12.5px;color:#5f6b7a">
+      ${skills.length}종을 중앙에서 로드하고 이 실행이 실제로 읽은 것은 ${usedSkills.length}종입니다.</div>`;
+  }
+
+  // 툴 호출
+  if(tools.length){
+    h+=`<h3>툴 호출 (읽기 허용 범위 안)</h3><table><thead><tr>
+      <th>툴</th><th>대상</th><th class="num">문자</th></tr></thead><tbody>`;
+    tools.forEach(t=>{h+=`<tr><td><code>${esc(t.tool)}</code></td><td>${esc(t.arg)}</td>
+      <td class="num">${num(t.chars)}</td></tr>`});
+    h+=`</tbody></table>`;
+  }
+
+  // 전 / 후 대조
+  const df=r.diffs||{};
+  if((df.source||[]).length){
+    h+=`<h3>① 소스 코드가 이렇게 바뀌었다</h3>`;
+    (df.source||[]).forEach(f=>{ h+=diffBlock(f,'소스'); });
+  }
+  if((df.wiki||[]).length){
+    h+=`<h3>② 그래서 위키 문서가 이렇게 바뀌었다 <span style="text-transform:none;
+      font-weight:500;color:#0972d3">← Claude 저작 결과</span></h3>`;
+    (df.wiki||[]).forEach(f=>{ h+=diffBlock(f,'위키'); });
+  }
+
+  // 산출 파일
+  if(w&&(w.files||[]).length){
+    h+=`<h3>게시 파일 (한 커밋)</h3><table><thead><tr><th>문서</th><th>Markdown</th>
+      <th>JSON pair</th></tr></thead><tbody>`;
+    const pairs=Array.isArray(w.pairs)?w.pairs:[];
+    pairs.forEach(pair=>{
+      const md=pair.markdown, js=pair.metadata;
+      h+=`<tr><td>${esc(md)}</td><td><code>${esc(md)}</code></td>
+        <td>${js?`<code>${esc(js)}</code>`:'<span class="pill p-no">없음</span>'}</td></tr>`;
+    });
+    h+=`</tbody></table>`;
+  }
+  box.innerHTML=h;
+}
+
+function wikiPanel(){
+  const w=SNAP.wiki||{}, docs=w.docs||[], b=SNAP.bootstrap||{};
+  const st=w.by_status||{}, top=w.by_top||{};
+  let h=`<h3 style="margin-top:34px">조직 위키 현재 상태 — 전수</h3>
+  <div class="grid" style="margin-bottom:10px">
+    <div class="kpi"><div class="v">${num(w.total_md)}</div><div class="l">문서 (.md)</div></div>
+    <div class="kpi"><div class="v">${num(w.pair_ok)}/${num(w.total_md)}</div>
+      <div class="l">JSON pair 보유</div></div>
+    <div class="kpi"><div class="v" style="color:#037f51">${num(st.current||0)}</div>
+      <div class="l">status current</div></div>
+    <div class="kpi"><div class="v" style="color:#8d6605">${num(st.unverified||0)}</div>
+      <div class="l">unverified</div></div>
+    <div class="kpi"><div class="v">${num(st.stale||0)}</div><div class="l">stale</div></div>
+  </div>
+  <div class="card"><dl class="kv">
+    <dt>위키 HEAD</dt><dd>${short(w.head)} · ${esc(w.head_author||'')}</dd>
+    <dt>마지막 커밋</dt><dd>${esc(w.head_message||'')}</dd>
+    <dt>index.md</dt><dd>${w.has_index_md?'있음':'없음 (로컬 --index 로 생성)'}</dd>
+    <dt>중앙 스킬</dt><dd>${(SNAP.skills||[]).length}종</dd>
+  </dl></div>
+
+  <h3>축 1 · Bootstrap — 위키를 처음 세운 결과</h3>
+  <div class="note">
+    Bootstrap 은 <b>머지가 아니라 운영자가 깨웁니다.</b> 트리거 대역을 지나지 않으므로
+    실행 기록이 위 목록에 없고, 증거는 위키 저장소의 기계 브랜치와 PR 입니다.
+    이 축의 문서는 <b>대응하는 소스 머지가 없어 <code>unverified</code> 로 남습니다.</b>
+    없는 근거로 검증됨을 표시하지 않는다는 뜻입니다.
+  </div>
+  <div class="grid" style="margin-bottom:10px">
+    <div class="kpi"><div class="v">${(b.branches||[]).length}</div><div class="l">Bootstrap 브랜치</div></div>
+    <div class="kpi"><div class="v">${(b.pull_requests||[]).length}</div><div class="l">Bootstrap 위키 PR</div></div>
+    <div class="kpi"><div class="v">${(b.pull_requests||[]).filter(p=>p.merged).length}</div>
+      <div class="l">머지된 것</div></div>
+  </div>
+  <table><thead><tr><th>위키 PR</th><th>대상 저장소</th><th>상태</th><th>머지</th></tr></thead><tbody>`;
+  (b.pull_requests||[]).forEach(p=>{
+    h+=`<tr><td>#${esc(p.pull_request_id)}</td><td><code>${esc(p.repo)}</code></td>
+      <td>${esc(p.status)}</td>
+      <td>${p.merged?`<span class="pill p-ok">${esc(p.merge_option||'merged')}</span>`
+                    :'<span class="pill p-hold">열림</span>'}</td></tr>`;
+  });
+  h+=`</tbody></table>
+
+  <h3>폴더별 문서 수와 상태</h3>
+  <table><thead><tr><th>폴더</th><th class="num">문서</th><th class="num">current</th>
+    <th class="num">unverified</th><th class="num">stale</th></tr></thead><tbody>`;
+  Object.entries(top).sort((a,b2)=>b2[1].total-a[1].total).forEach(([k,v])=>{
+    h+=`<tr><td><code>${esc(k)}/</code></td><td class="num">${num(v.total)}</td>
+      <td class="num">${num(v.current)}</td><td class="num">${num(v.unverified)}</td>
+      <td class="num">${num(v.stale)}</td></tr>`;
+  });
+  h+=`</tbody></table>
+
+  <h3>최근 저작 문서 ${w.docs_truncated?`(전체 ${num(w.total_md)}건 중 ${docs.length}건)`:''}</h3>
+  <table><thead><tr><th>문서</th><th>타입</th><th>status</th><th>stale_after</th>
+    <th class="num">verified</th><th class="num">sources</th><th>JSON</th></tr></thead><tbody>`;
+  docs.forEach(d=>{
+    const p = d.status==='current' ? 'p-ok' : d.status==='stale' ? 'p-no' : 'p-hold';
+    h+=`<tr><td><code>${esc(d.path)}</code></td><td>${esc(d.type||'—')}</td>
+      <td><span class="pill ${p}">${esc(d.status||'—')}</span></td>
+      <td>${esc(d.stale_after||'—')}</td>
+      <td class="num">${d.verified_count??0}</td>
+      <td class="num">${(d.sources||[]).length}</td>
+      <td>${d.has_json_pair?`<code>${esc(d.metadata_path)}</code>`:'—'}</td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  return h;
+}
+
+function bindTabs(){
+  document.querySelectorAll('.dtabs button').forEach(b=>b.onclick=()=>{
+    const grp=b.closest('.dtabs');
+    grp.querySelectorAll('button').forEach(x=>{
+      x.classList.remove('on');
+      const p=document.getElementById(x.dataset.t); if(p) p.hidden=true;
+    });
+    b.classList.add('on');
+    const p=document.getElementById(b.dataset.t); if(p) p.hidden=false;
+  });
+}
+
+function render(){
+  document.getElementById('snapAt').textContent =
+    '스냅샷 ' + (SNAP.generated_at||'').replace('T',' ').replace('+00:00',' UTC');
+  document.getElementById('snapRegion').textContent = '리전 ' + (SNAP.region||'');
+  DIFFSEQ=0;
+  runList(); detail();
+  document.getElementById('detail').insertAdjacentHTML('beforeend', wikiPanel());
+  bindTabs();
+}
+
+async function load(){
+  SNAP=await window.DemoApi.get('/api/snapshot');
+  if(SEL>=(SNAP.runs||[]).length) SEL=0;
+  render();
+}
+
+document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.filters button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed','false'));
+  b.classList.add('on'); FILTER=b.dataset.f;
+  b.setAttribute('aria-pressed','true');
+  const first=(SNAP.runs||[]).findIndex(matches);
+  if(first>=0) SEL=first;
+  render();
+});
+
+document.getElementById('rf').onclick=async e=>{
+  const b=e.target; b.disabled=true; b.textContent='수집 중…';
+  const before=SNAP&&SNAP.generated_at;
+  document.getElementById('opStatus').textContent='collector refresh 요청 중';
+  try{
+    await window.DemoApi.post('/api/actions/refresh',{});
+    for(let attempt=0;attempt<8;attempt+=1){
+      if(attempt) await new Promise(resolve=>setTimeout(resolve,1500));
+      await load();
+      if(!before||SNAP.generated_at!==before) break;
+    }
+    document.getElementById('opStatus').textContent='snapshot 동기화 완료';
+  }catch(error){
+    document.getElementById('opStatus').textContent='snapshot 갱신 실패';
+  }
+  b.disabled=false; b.textContent='새로고침';
+};
+
+document.getElementById('logoutButton').onclick=async()=>{
+  document.getElementById('logoutButton').disabled=true;
+  await window.DemoAuth.logout();
+};
+
+async function bootstrapPage(){
+  try{
+    const authSession=await window.DemoAuth.bootstrap();
+    if (!authSession) return;
+    const session=await window.DemoApi.get('/api/session');
+    const verifiedSubject=session&&session.subject;
+    if(!window.DemoAuth.validSubject(verifiedSubject)){
+      const error=new Error('Invalid authenticated session');
+      error.status=401;
+      throw error;
+    }
+    await load();
+    document.getElementById('authSubject').textContent=subjectLabel(verifiedSubject);
+    document.getElementById('authStatus').textContent='AUTHENTICATED';
+    document.getElementById('authGate').hidden=true;
+    document.getElementById('appShell').hidden=false;
+  }catch(error){
+    document.getElementById('appShell').hidden=true;
+    document.getElementById('authGate').hidden=false;
+    document.getElementById('authGate').textContent=error&&error.status===401
+      ?'인증 세션이 만료되었습니다. 다시 로그인합니다.'
+      :'인증 또는 데이터 초기화에 실패했습니다. 페이지를 다시 열어 주세요.';
+    if(error&&error.status===401){
+      await window.DemoAuth.logout();
+    }
+  }
+}
+
+bootstrapPage();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "account": "<AWS 계정 ID 12자리>",
+  "profile": "<~/.aws/config 의 프로파일 이름>",
+  "region": "<리전. 예: ap-northeast-2>",
+  "runtime_id": "<AgentCore Runtime ID. 예: myagent-XXXXXXXXXX>",
+  "source_repositories": [
+    "<source 저장소 1>",
+    "<source 저장소 2>"
+  ],
+  "wiki_repo": "<Wiki 저장소>",
+
+  "redact": [
+    ["arn:aws:sts::<계정 ID>:assumed-role/<사람 역할>/<세션 1>", "<검토자 A>"],
+    ["arn:aws:sts::<계정 ID>:assumed-role/<사람 역할>/<세션 2>", "<검토자 B>"],
+    ["arn:aws:sts::<계정 ID>:assumed-role/<Runtime 실행 역할>/<Runtime 이름>", "<에이전트 실행 역할>"],
+    ["arn:aws:sts::<계정 ID>:assumed-role/<Trigger 실행 역할>/<함수 이름>", "<트리거 실행 역할>"],
+    ["<사람 alias 1>", "<사용자>"],
+    ["<사람 alias 2>", "<사용자2>"]
+  ]
+}

@@ -1,0 +1,10 @@
+# 계정 좌표, principal ARN, 사람 alias 를 담는다. 절대 커밋하지 않는다.
+# 형식은 local.json.example 을 복사해서 만든다.
+local.json
+
+# collect.py 가 AWS 를 읽어 만드는 로컬 캐시. 실행할 때마다 재생성된다.
+snapshot.json
+
+__pycache__/
+*.pyc
+.DS_Store

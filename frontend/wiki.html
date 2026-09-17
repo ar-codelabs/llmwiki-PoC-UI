@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#071019">
+<title>apps-knowledge 저장 위치와 커밋 이력</title>
+<style>
+  :root{color-scheme:dark;--ink:#e7eef6;--sub:#92a7ba;--line:#2b3c4f;--bg:#101a25;
+    --soft:#08121c;--accent:#4da3ff;--ok:#40c98b;--warn:#e7bd58;--no:#ff8e8e;--code:#071019}
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      linear-gradient(rgba(77,163,255,.035) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(77,163,255,.035) 1px,transparent 1px),
+      var(--soft);background-size:32px 32px;color:var(--ink);font-size:14px;line-height:1.65;
+    font-family:Bahnschrift,"Aptos Narrow","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+  .app-shell[hidden],.auth-gate[hidden]{display:none}
+  .auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;color:var(--sub);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em}
+  .auth-gate::before{content:"AUTH /";color:var(--accent);margin-right:8px}
+  header{background:rgba(7,16,25,.97);color:#fff;padding:12px 20px;display:flex;gap:14px;
+    align-items:center;position:sticky;top:0;z-index:20;flex-wrap:wrap;
+    border-bottom:1px solid #34495e;box-shadow:0 12px 34px rgba(0,0,0,.2)}
+  header h1{font-size:16px;margin:0;font-weight:650}
+  header nav{margin-left:auto;display:flex;gap:14px;align-items:center}
+  header a{color:#9fd0f7;font-size:12.5px;text-decoration:none}
+  header a:hover{text-decoration:underline}
+  .auth-cluster{display:flex;align-items:center;gap:8px;border-left:1px solid #3b4d61;
+    padding-left:12px;font-size:11.5px;color:#b9c9d8}
+  .signal{width:7px;height:7px;border-radius:50%;background:var(--ok);
+    box-shadow:0 0 0 4px rgba(64,201,139,.12)}
+  #authSubject{color:#e1ebf5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .logout{border:1px solid #52677d;background:transparent;color:#c8d7e5;border-radius:4px;
+    padding:5px 9px;font:600 11.5px inherit;cursor:pointer}
+  .logout:hover{background:#172638;border-color:#7590aa}
+  .wrap{max-width:1500px;margin:0 auto;padding:20px 22px 70px}
+  .panel{background:rgba(16,26,37,.97);border:1px solid var(--line);border-radius:6px;
+    overflow:hidden;margin-bottom:18px;box-shadow:0 18px 48px rgba(0,0,0,.16)}
+  .phead{padding:10px 14px;background:var(--soft);border-bottom:1px solid var(--line);
+    font-weight:650;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pbody{padding:14px}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:4px 14px;font-size:12.5px}
+  .kv dt{color:var(--sub)} .kv dd{margin:0;font-family:ui-monospace,Menlo,monospace;
+    font-size:12px;word-break:break-all}
+  .cols{display:grid;grid-template-columns:minmax(280px,340px) 1fr;gap:18px;align-items:start}
+  select{padding:7px 10px;border:1px solid var(--line);border-radius:5px;
+    font-family:inherit;font-size:12.5px;max-width:100%;background:#09131d;color:var(--ink)}
+  input[type=search]{padding:7px 10px;border:1px solid var(--line);border-radius:5px;
+    font-family:inherit;font-size:12.5px;width:210px;background:#09131d;color:var(--ink)}
+  pre{background:var(--code);color:#e6edf3;border-radius:6px;padding:11px 13px;
+    font-size:12px;line-height:1.6;overflow:auto;max-height:420px;white-space:pre-wrap;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:8px 0}
+  pre .ad{color:#7ee787;background:rgba(46,160,67,.16);display:block}
+  pre .de{color:#ffa198;background:rgba(248,81,73,.14);display:block}
+  pre .hh{color:#79c0ff;display:block;margin-top:4px}
+  pre .m{color:#9aa7b4} pre .b{color:#79c0ff;font-weight:600}
+  .tree{font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.85;
+    max-height:300px;overflow:auto;background:#09131d;border:1px solid var(--line);
+    border-radius:6px;padding:10px 12px}
+  .tree .d{color:var(--accent);font-weight:600}
+  .clist{max-height:520px;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
+  .c{padding:9px 12px;border-bottom:1px solid #1d2b39;cursor:pointer}
+  .c:last-child{border-bottom:0}
+  .c:hover{background:#142536}
+  .c.sel{background:#112b42;box-shadow:inset 3px 0 0 var(--accent)}
+  .c .s{font-size:12.5px;font-weight:600}
+  .c .m2{font-size:11.5px;color:var(--sub);font-family:ui-monospace,Menlo,monospace;
+    margin-top:2px;display:flex;gap:9px;flex-wrap:wrap}
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;border-radius:3px;padding:1px 6px}
+  .k-게시{background:#0972d3;color:#fff}
+  .k-확정{background:#0e2d24;color:var(--ok);border:1px solid #246c53}
+  .k-기타{background:#182431;color:var(--sub);border:1px solid var(--line)}
+  .note{border-left:4px solid var(--accent);background:#102538;padding:11px 14px;
+    border-radius:0 6px 6px 0;font-size:12.5px;margin:10px 0}
+  label{font-size:12px;color:var(--sub);display:block;margin:12px 0 3px;font-weight:600}
+  .dtabs{display:flex;gap:5px;margin:8px 0 0}
+  .dtabs button{background:var(--bg);border:1px solid var(--line);border-radius:4px;
+    padding:3px 9px;font-size:11.5px;cursor:pointer;color:var(--sub);font-family:inherit}
+  .dtabs button.on{background:var(--code);border-color:var(--code);color:#fff;font-weight:600}
+  .hidden{display:none}
+  .op-status{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+    color:#a9bdd0}
+  :focus-visible{outline:3px solid #ffd166;outline-offset:3px}
+  @media(max-width:1000px){.cols{grid-template-columns:1fr}}
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;
+      animation-iteration-count:1!important;scroll-behavior:auto!important}
+  }
+</style>
+</head>
+<body>
+<div class="auth-gate" id="authGate" role="status" aria-live="polite">
+  Cognito session 확인 중
+</div>
+<div class="app-shell" id="appShell" hidden>
+<header>
+  <h1>apps-knowledge 저장 위치와 커밋 이력</h1>
+  <span class="op-status" id="opStatus" role="status" aria-live="polite"></span>
+  <nav>
+    <a href="/live.html">Pipeline Control Console</a>
+    <a href="/">실행 기록 콘솔</a>
+    <span class="auth-cluster">
+      <span class="signal" aria-hidden="true"></span>
+      <span id="authStatus" role="status" aria-live="polite">인증됨</span>
+      <span id="authSubject"></span>
+      <button class="logout" id="logoutButton" type="button" aria-label="로그아웃">LOGOUT</button>
+    </span>
+  </nav>
+</header>
+
+<div class="wrap">
+  <section class="panel">
+    <div class="phead">위키는 어디에 저장되나</div>
+    <div class="pbody">
+      <div class="note">
+        조직 위키는 <b>독립된 Git 저장소</b>입니다. 소스 저장소와 분리돼 있고,
+        문서는 <b>Markdown + JSON 두 파일이 한 쌍</b>으로 같은 커밋에 들어갑니다.
+        S3 는 이 구조에서 <b>스킬 카탈로그 배포용</b>이고 문서 정본이 아닙니다.
+      </div>
+      <div class="cols">
+        <div><dl class="kv" id="repokv"></dl></div>
+        <div>
+          <label>트리 (main 기준 · 상위 3단계)</label>
+          <div class="tree" id="tree">읽는 중…</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="phead">
+      커밋 이력
+      <select id="csel" style="min-width:340px" aria-label="wiki commit 선택"></select>
+      <input type="search" id="q" aria-label="wiki commit 검색"
+        placeholder="주제 · 커밋 · PR 번호 검색">
+      <span style="font-size:12px;color:#92a7ba" id="cinfo"
+        role="status" aria-live="polite"></span>
+    </div>
+    <div class="pbody">
+      <div class="cols">
+        <div class="clist" id="clist"></div>
+        <div id="cdetail"><div style="color:#5f6b7a;padding:30px 0;text-align:center">
+          커밋을 고르세요</div></div>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+
+<script src="/auth.js"></script>
+<script src="/api.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+let HIST=[], SEL=null, Q='';
+const subjectLabel=value=>{
+  const text=String(value||'unknown');
+  return text.length>18?`${text.slice(0,8)}…${text.slice(-4)}`:text;
+};
+
+function short(s){return String(s||'').slice(0,12);}
+function when(d){return String(d||'').replace('T',' ').slice(0,19);}
+
+async function loadRepo(){
+  const j=await window.DemoApi.get('/api/wiki-repo');
+  $('repokv').innerHTML=`
+    <dt>종류</dt><dd>${esc(j.kind)}</dd>
+    <dt>저장소</dt><dd>${esc(j.repo)}</dd>
+    <dt>기본 브랜치</dt><dd>${esc(j.default_branch)}</dd>
+    <dt>clone URL</dt><dd>${esc(j.clone_url)}</dd>
+    <dt>브랜치 수</dt><dd>${j.branch_count} (기계 브랜치 포함)</dd>
+    <dt>마지막 수정</dt><dd>${esc(when(j.last_modified))}</dd>`;
+  $('tree').innerHTML=(j.tree||[]).map(t=>{
+    const pad='&nbsp;&nbsp;'.repeat(t.depth);
+    const name=t.path.split('/').filter(Boolean).pop();
+    return t.kind==='dir'
+      ? `${pad}<span class="d">${esc(name)}/</span>`
+      : `${pad}${esc(name)}`;
+  }).join('<br>');
+}
+
+function matches(c){
+  if(!Q) return true;
+  const s=(c.subject+' '+c.commit+' '+JSON.stringify(c.meta||{})).toLowerCase();
+  return s.includes(Q.toLowerCase());
+}
+
+function drawList(){
+  const rows=HIST.filter(matches);
+  $('cinfo').textContent=`${rows.length} / ${HIST.length}건`;
+  $('csel').innerHTML=rows.map(c=>
+    `<option value="${c.commit}">${esc(short(c.commit))} · ${esc(c.subject.slice(0,58))}</option>`).join('');
+  if(SEL) $('csel').value=SEL;
+  $('clist').innerHTML=rows.map(c=>{
+    const pr=(c.meta||{}).source_pull_request||'';
+    return `<div class="c ${c.commit===SEL?'sel':''}" data-c="${c.commit}"
+      role="button" tabindex="0" aria-pressed="${c.commit===SEL?'true':'false'}">
+      <div class="s"><span class="pill k-${c.kind}">${c.kind}</span> ${esc(c.subject.slice(0,64))}</div>
+      <div class="m2"><span>${esc(short(c.commit))}</span><span>${esc(c.author)}</span>
+        <span>${esc(when(c.date))}</span>${pr?`<span>${esc(pr)}</span>`:''}</div>
+    </div>`;
+  }).join('')||'<div style="padding:24px;text-align:center;color:#5f6b7a">없음</div>';
+  $('clist').querySelectorAll('.c').forEach(el=>{
+    const choose=()=>show(el.dataset.c);
+    el.onclick=choose;
+    el.onkeydown=event=>{
+      if(event.key==='Enter'||event.key===' '){ event.preventDefault(); choose(); }
+    };
+  });
+}
+
+async function show(id){
+  SEL=id; drawList(); $('csel').value=id;
+  const j=await window.DemoApi.get('/api/wiki-commit?id='+encodeURIComponent(id));
+  const h=HIST.find(x=>x.commit===id)||{};
+  const meta=h.meta||{};
+  let out=`<dl class="kv">
+    <dt>커밋</dt><dd>${esc(j.commit)}</dd>
+    <dt>작성자</dt><dd>${esc(j.author)}</dd>
+    <dt>시각</dt><dd>${esc(when(j.date))}</dd>
+    <dt>부모</dt><dd>${esc(j.parent||'(최초)')}</dd>`;
+  if(meta.source) out+=`<dt>원본 소스</dt><dd>${esc(meta.source)}</dd>`;
+  if(meta.source_pull_request) out+=`<dt>원본 PR</dt><dd>${esc(meta.source_pull_request)}</dd>`;
+  if(meta.diff_sha256) out+=`<dt>멱등 키</dt><dd>${esc(meta.diff_sha256)}</dd>`;
+  if(meta.wiki_merge) out+=`<dt>위키 머지</dt><dd>${esc(meta.wiki_merge)}</dd>`;
+  out+=`</dl>`;
+
+  if(meta.pr_description){
+    out+=`<label>원본 PR 설명 — 이 커밋 메타데이터에 보존된 "왜 바뀌었나"</label>
+      <pre>${esc(meta.pr_description)}</pre>`;
+  }
+  out+=`<label>커밋 메시지 전문</label><pre>${esc(j.message)}</pre>`;
+
+  (j.files||[]).forEach((f,i)=>{
+    const uni=(f.unified||[]).filter(l=>!l.startsWith('---')&&!l.startsWith('+++'));
+    const body=uni.map(l=>{
+      const c=l.startsWith('+')?'ad':l.startsWith('-')?'de':l.startsWith('@@')?'hh':'';
+      return `<span class="${c}">${esc(l)}</span>`;}).join('\n');
+    const id2='f'+i;
+    out+=`<label>${esc(f.path)} <span style="font-weight:400">(${esc(f.change)})</span></label>
+      <div class="dtabs">
+        <button class="on" data-t="${id2}u">변경분</button>
+        <button data-t="${id2}b">이전</button>
+        <button data-t="${id2}a">이후</button>
+      </div>
+      <div id="${id2}u"><pre>${body||'(변경 없음)'}</pre></div>
+      <div id="${id2}b" hidden><pre>${esc(f.before)||'(없음)'}</pre></div>
+      <div id="${id2}a" hidden><pre>${esc(f.after)||'(없음)'}</pre></div>`;
+  });
+  $('cdetail').innerHTML=out;
+  $('cdetail').querySelectorAll('.dtabs button').forEach(b=>b.onclick=()=>{
+    const g=b.closest('.dtabs');
+    g.querySelectorAll('button').forEach(x=>{x.classList.remove('on');
+      const p=document.getElementById(x.dataset.t); if(p) p.hidden=true;});
+    b.classList.add('on');
+    const p=document.getElementById(b.dataset.t); if(p) p.hidden=false;
+  });
+}
+
+$('csel').onchange=e=>show(e.target.value);
+$('q').oninput=e=>{Q=e.target.value;drawList();};
+
+document.getElementById('logoutButton').onclick=async()=>{
+  document.getElementById('logoutButton').disabled=true;
+  await window.DemoAuth.logout();
+};
+
+async function bootstrapPage(){
+  try{
+    const authSession=await window.DemoAuth.bootstrap();
+    if (!authSession) return;
+    const session=await window.DemoApi.get('/api/session');
+    const verifiedSubject=session&&session.subject;
+    if(!window.DemoAuth.validSubject(verifiedSubject)){
+      const error=new Error('Invalid authenticated session');
+      error.status=401;
+      throw error;
+    }
+    $('opStatus').textContent='repository state 조회 중';
+    await loadRepo();
+    const j=await window.DemoApi.get('/api/wiki-history?limit=40');
+    HIST=j.commits||[];
+    drawList();
+    if(HIST.length) await show(HIST[0].commit);
+    $('authSubject').textContent=subjectLabel(verifiedSubject);
+    $('authStatus').textContent='AUTHENTICATED';
+    $('authGate').hidden=true;
+    $('appShell').hidden=false;
+    $('opStatus').textContent='repository state 동기화 완료';
+  }catch(error){
+    $('appShell').hidden=true;
+    $('authGate').hidden=false;
+    $('authGate').textContent=error&&error.status===401
+      ?'인증 세션이 만료되었습니다. 다시 로그인합니다.'
+      :'인증 또는 wiki 데이터 조회에 실패했습니다. 페이지를 다시 열어 주세요.';
+    if(error&&error.status===401){
+      await window.DemoAuth.logout();
+    }
+  }
+}
+
+bootstrapPage();
+</script>
+</body>
+</html>
